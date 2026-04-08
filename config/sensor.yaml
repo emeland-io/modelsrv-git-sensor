@@ -1,0 +1,30 @@
+# Downstream model servers that will receive events.
+subscribers:
+#  - "http://localhost:24000/api/"
+
+# Watch checkout directory for YAML changes (fsnotify) to trigger reconcile sooner.
+watch: true
+
+# One sensor can watch more than one repository.
+repos:
+  # Example: local repository checkout
+  # - type: "github"
+  #   repo: "/path/to/local/repo"
+  #   branch: "main"
+  #   # Used when repo is a URL (clone target). For local repos, it's ignored.
+  #   checkoutDir: ".work/checkout/repo1"
+  #   # One or more paths inside the repo to scan (files or directories).
+  #   paths:
+  #     - "data"
+
+  # Example: remote GitHub repository with a deploy key
+  # - type: github
+  #   # Path to the *public* deploy key. The matching private key is expected at the same path without ".pub".
+  #   deployKey: deploy_key.pub
+  #   repo: https://github.com/example-org/example-repo
+  #   branch: main
+  #   checkoutDir: ".work/checkout/repo1"
+  #   paths:
+  #     - "watchedDir"
+
+

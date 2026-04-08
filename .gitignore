@@ -1,0 +1,36 @@
+# Binaries
+/bin/
+/dist/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test / coverage
+*.out
+*.test
+coverage.out
+coverage.html
+profile.cov
+
+# Go workspace / vendor (uncomment if you commit neither)
+# vendor/
+
+# Local module cache / GOPATH-style trees (e.g. Cursor sandboxes)
+.gopath/
+
+# Sensor working copy: cloned repos and local state
+.work/
+
+# Env and secrets
+.env
+.env.*
+!.env.example
+
+# Editors / OS
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
