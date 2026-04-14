@@ -1,4 +1,4 @@
-package sensor
+package gitops
 
 import (
 	"bytes"
@@ -164,12 +164,6 @@ func githubHTTPSURLToSSH(repo string) (string, bool) {
 		return "", false
 	}
 	return "git@github.com:" + path, true
-}
-
-// Test-only helpers.
-func TestOnlyGithubHTTPSURLToSSH(repo string) (string, bool) { return githubHTTPSURLToSSH(repo) }
-func TestOnlyInferPrivateKeyPathFromPub(pubPath string) string {
-	return inferPrivateKeyPathFromPub(pubPath)
 }
 
 func gitSSHEnv(privateKeyPath string) (env []string, cleanup func(), err error) {

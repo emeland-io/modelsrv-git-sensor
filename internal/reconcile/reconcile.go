@@ -11,9 +11,31 @@ import (
 
 	"go.uber.org/zap"
 
+	"emeland.io/modelsrv-git-sensor/internal/fswatch"
+	"emeland.io/modelsrv-git-sensor/internal/gitops"
 	"emeland.io/modelsrv-git-sensor/internal/sensor"
 )
 
+// RepoType is re-exported from gitops so callers (config, main) only need to
+// import this package.
+type RepoType = gitops.RepoType
+
+const (
+	RepoTypeUnknown RepoType = ""
+	RepoTypeGitHub           = gitops.RepoTypeGitHub
+)
+
+// ParseRepoType maps a string from config to a RepoType.
+func ParseRepoType(s string) RepoType {
+	switch strings.ToLower(strings.TrimSpace(s)) {
+	case "", "github":
+		return gitops.RepoTypeGitHub
+	default:
+		return RepoTypeUnknown
+	}
+}
+
+// Config holds the full runtime configuration for one sensor process.
 type Config struct {
 	ListenAddr   string
 	Subscribers  []string
@@ -22,22 +44,7 @@ type Config struct {
 	WatchFS      bool
 }
 
-type RepoType int
-
-const (
-	RepoTypeUnknown RepoType = iota
-	RepoTypeGitHub
-)
-
-func ParseRepoType(s string) RepoType {
-	switch strings.ToLower(strings.TrimSpace(s)) {
-	case "", "github":
-		return RepoTypeGitHub
-	default:
-		return RepoTypeUnknown
-	}
-}
-
+// RepoConfig describes a single repository the sensor should watch.
 type RepoConfig struct {
 	Type        RepoType
 	DeployKey   string
@@ -47,16 +54,8 @@ type RepoConfig struct {
 	CheckoutDir string
 }
 
-func (t RepoType) sensorRepoType() sensor.RepoType {
-	switch t {
-	case RepoTypeGitHub:
-		return sensor.RepoTypeGitHub
-	default:
-		// Config validation should prevent this.
-		return sensor.RepoTypeGitHub
-	}
-}
-
+// Run is the main blocking loop of the sensor. It starts the HTTP endpoint,
+// checks out repositories, and reconciles YAML files on every poll/FS-event tick.
 func Run(ctx context.Context, cfg Config, log *zap.SugaredLogger) error {
 	if log == nil {
 		log = zap.NewNop().Sugar()
@@ -78,7 +77,7 @@ func Run(ctx context.Context, cfg Config, log *zap.SugaredLogger) error {
 
 	type repoRuntime struct {
 		repoCfg     RepoConfig
-		state       *sensor.MemState
+		state       *State
 		workdir     string
 		isLocal     bool
 		ensureWatch func(abs string)
@@ -87,7 +86,7 @@ func Run(ctx context.Context, cfg Config, log *zap.SugaredLogger) error {
 	runtimes := make([]repoRuntime, 0, len(cfg.Repos))
 	for i := range cfg.Repos {
 		rc := cfg.Repos[i]
-		workdir, isLocal, err := sensor.PrepareCheckout(ctx, rc.Type.sensorRepoType(), rc.DeployKey, rc.Repo, rc.Branch, rc.CheckoutDir, log)
+		workdir, isLocal, err := gitops.PrepareCheckout(ctx, rc.Type, rc.DeployKey, rc.Repo, rc.Branch, rc.CheckoutDir, log)
 		if err != nil {
 			// Don't take down the whole sensor if one repo is temporarily unavailable/misconfigured.
 			log.Errorw("repo checkout failed (skipping repo)", "repoIndex", i, "repo", rc.Repo, "error", err)
@@ -97,12 +96,12 @@ func Run(ctx context.Context, cfg Config, log *zap.SugaredLogger) error {
 
 		var ensureWatch func(string)
 		if cfg.WatchFS {
-			ensureWatch = sensor.StartFSWatch(ctx, workdir, rc.Paths, notify, log)
+			ensureWatch = fswatch.Start(ctx, workdir, rc.Paths, notify, log)
 		}
 
 		runtimes = append(runtimes, repoRuntime{
 			repoCfg:     rc,
-			state:       sensor.NewMemState(),
+			state:       NewState(),
 			workdir:     workdir,
 			isLocal:     isLocal,
 			ensureWatch: ensureWatch,
@@ -127,7 +126,7 @@ func Run(ctx context.Context, cfg Config, log *zap.SugaredLogger) error {
 				rt := &runtimes[i]
 				rc := rt.repoCfg
 				if !rt.isLocal {
-					wd, _, err := sensor.PrepareCheckout(ctx, rc.Type.sensorRepoType(), rc.DeployKey, rc.Repo, rc.Branch, rc.CheckoutDir, log)
+					wd, _, err := gitops.PrepareCheckout(ctx, rc.Type, rc.DeployKey, rc.Repo, rc.Branch, rc.CheckoutDir, log)
 					if err != nil {
 						log.Errorw("git refresh failed", "repo", rc.Repo, "error", err)
 						continue
@@ -151,11 +150,11 @@ func Run(ctx context.Context, cfg Config, log *zap.SugaredLogger) error {
 						rt.ensureWatch(abs)
 					}
 					if info.IsDir() {
-						if err := sensor.ReconcileDir(ctx, s, rt.state, abs, log); err != nil {
+						if err := ReconcileDir(ctx, s, rt.state, abs, log); err != nil {
 							log.Errorw("reconcile dir failed", "repo", rc.Repo, "dir", abs, "error", err)
 						}
 					} else {
-						if err := sensor.ReconcileFile(ctx, s, rt.state, abs, log); err != nil {
+						if err := ReconcileFile(ctx, s, rt.state, abs, log); err != nil {
 							log.Errorw("reconcile file failed", "repo", rc.Repo, "file", abs, "error", err)
 						}
 					}
@@ -164,4 +163,3 @@ func Run(ctx context.Context, cfg Config, log *zap.SugaredLogger) error {
 		}
 	}
 }
-

@@ -1,4 +1,4 @@
-package sensor_test
+package fswatch_test
 
 import (
 	"context"
@@ -7,12 +7,12 @@ import (
 	. "github.com/onsi/gomega"
 	"go.uber.org/zap"
 
-	"emeland.io/modelsrv-git-sensor/internal/sensor"
+	"emeland.io/modelsrv-git-sensor/internal/fswatch"
 )
 
 var _ = Describe("fswatch", func() {
 	It("returns nil ensure func when trigger is nil", func() {
-		got := sensor.StartFSWatch(context.Background(), GinkgoT().TempDir(), []string{"."}, nil, zap.NewNop().Sugar())
+		got := fswatch.Start(context.Background(), GinkgoT().TempDir(), []string{"."}, nil, zap.NewNop().Sugar())
 		Expect(got).To(BeNil())
 	})
 })

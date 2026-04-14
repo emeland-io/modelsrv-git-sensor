@@ -122,8 +122,3 @@ func validate(cfg Config) error {
 	return nil
 }
 
-// Test-only helpers to keep normalization/validation behavior unit-testable without
-// exposing these functions as public API.
-func TestOnlyNormalize(cfg *Config, baseDir string) { normalize(cfg, baseDir) }
-func TestOnlyValidate(cfg Config) error             { return validate(cfg) }
-

@@ -1,4 +1,4 @@
-package sensor
+package fswatch
 
 import (
 	"context"
@@ -13,13 +13,13 @@ import (
 
 const debounceDelay = 300 * time.Millisecond
 
-// StartFSWatch registers watches on each configured scan path under workdir.
+// Start registers watches on each configured scan path under workdir.
 // It does not watch the whole repo root, so .git updates from fetch do not
 // trigger reconcile. fsnotify does not recurse into subdirectories: a path
 // listing "watchedDir" watches that directory; only direct children are reported.
 // Paths that do not exist yet are skipped; call the returned function with the
 // same absolute path after a successful stat (e.g. after git creates the dir).
-func StartFSWatch(ctx context.Context, workdir string, relPaths []string, trigger func(), log *zap.SugaredLogger) func(abs string) {
+func Start(ctx context.Context, workdir string, relPaths []string, trigger func(), log *zap.SugaredLogger) func(abs string) {
 	if trigger == nil {
 		return nil
 	}
