@@ -1,4 +1,4 @@
-package sensor_test
+package reconcile_test
 
 import (
 	"bytes"
@@ -7,7 +7,7 @@ import (
 	. "github.com/onsi/gomega"
 	"go.emeland.io/modelsrv/pkg/events"
 
-	"emeland.io/modelsrv-git-sensor/internal/sensor"
+	"emeland.io/modelsrv-git-sensor/internal/reconcile"
 )
 
 var _ = Describe("doc decoding", func() {
@@ -28,7 +28,7 @@ spec:
   apiId: "e1000001-0000-4000-8000-000000000002"
   systemInstanceId: "e1000001-0000-4000-8000-000000000011"
 `
-		docs, err := sensor.TestOnlyDecodeDocuments([]byte(yaml))
+		docs, err := reconcile.ExportDecodeDocuments([]byte(yaml))
 		Expect(err).NotTo(HaveOccurred())
 		Expect(docs).To(HaveLen(2))
 		Expect(docs[1].Kind.ResourceType()).To(Equal(events.APIInstanceResource))
@@ -52,7 +52,7 @@ spec:
   apiId: "e1000001-0000-4000-8000-000000000003"
   systemInstanceId: "e1000001-0000-4000-8000-000000000011"
 `
-		docs, err := sensor.TestOnlyDecodeDocuments([]byte(yaml))
+		docs, err := reconcile.ExportDecodeDocuments([]byte(yaml))
 		Expect(err).NotTo(HaveOccurred())
 		Expect(docs).To(HaveLen(2))
 		for i := range docs {
@@ -62,7 +62,7 @@ spec:
 
 	It("normalizes indented kind line", func() {
 		in := []byte("version: emeland.io/v1\n  kind: ApiInstance\nspec: {}\n")
-		out := sensor.TestOnlyNormalizeYAMLKindsForFileSensor(in)
+		out := reconcile.ExportNormalizeYAMLKindsForFileSensor(in)
 		Expect(bytes.Contains(out, []byte("kind: APIInstance"))).To(BeTrue(), "got %q", out)
 	})
 })

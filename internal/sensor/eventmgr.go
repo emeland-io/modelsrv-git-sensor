@@ -5,126 +5,17 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+	"sync"
 
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 
 	"go.emeland.io/modelsrv/pkg/client"
-	"go.emeland.io/modelsrv/pkg/endpoint"
 	"go.emeland.io/modelsrv/pkg/events"
-	"go.emeland.io/modelsrv/pkg/model"
-	"go.emeland.io/modelsrv/pkg/model/node"
 )
 
-// gitSensorNodeTypeID is the stable identity for the "git-sensor" NodeType.
-// All instances of this sensor share this UUID. It is intentionally hardcoded
-// and must not be changed after the first deployment.
-var gitSensorNodeTypeID = uuid.MustParse("bd044ec4-5e2f-5b91-a444-cc120374d21a")
-
-// sensorServer runs a modelsrv web endpoint and forwards events to subscribers.
-type sensorServer struct {
-	events *eventManager
-	model  model.Model
-	nodeID uuid.UUID // this process's Node UUID, generated at startup
-	log    *zap.SugaredLogger
-}
-
-func New(listenAddr string, subscribers []string, log *zap.SugaredLogger) (*sensorServer, error) {
-	if log == nil {
-		log = zap.NewNop().Sugar()
-	}
-
-	em := newEventManager(log)
-	for _, s := range subscribers {
-		if err := em.AddSubscriber(s); err != nil {
-			return nil, err
-		}
-	}
-
-	sink, err := em.GetSink()
-	if err != nil {
-		return nil, err
-	}
-
-	m, err := model.NewModel(sink)
-	if err != nil {
-		return nil, err
-	}
-
-	nt := node.NewNodeType(sink, gitSensorNodeTypeID)
-	nt.SetDisplayName("git-sensor")
-	if err := m.AddNodeType(nt); err != nil {
-		return nil, fmt.Errorf("register node type: %w", err)
-	}
-
-	nodeID := uuid.New()
-	n := node.NewNode(sink, nodeID)
-	n.SetDisplayName("git-sensor")
-	n.SetNodeTypeByRef(nt)
-	if err := m.AddNode(n); err != nil {
-		return nil, fmt.Errorf("register node: %w", err)
-	}
-
-	if err := endpoint.StarWebListener(m, em, listenAddr); err != nil {
-		return nil, err
-	}
-
-	log.Infow("sensor registered",
-		"nodeTypeId", gitSensorNodeTypeID,
-		"nodeId", nodeID,
-	)
-	log.Infow("subscriber management endpoints available",
-		"register", fmt.Sprintf("http://%s/api/events/register", listenAddr),
-		"unregister", fmt.Sprintf("http://%s/api/events/unregister", listenAddr),
-		"subscribers", fmt.Sprintf("http://%s/api/events/subscribers", listenAddr),
-	)
-
-	return &sensorServer{events: em, model: m, nodeID: nodeID, log: log}, nil
-}
-
-func (s *sensorServer) Close() error {
-	if err := s.model.DeleteNodeById(s.nodeID); err != nil {
-		s.log.Warnw("failed to delete node on shutdown", "nodeId", s.nodeID, "error", err)
-	}
-	endpoint.StopWebListener()
-	return nil
-}
-
-// Emit forwards an event into the sensor's event manager (which records and pushes to subscribers).
-func (s *sensorServer) Emit(ev events.Event) error {
-	sink, err := s.events.GetSink()
-	if err != nil {
-		return err
-	}
-	return sink.Receive(ev.ResourceType, ev.Operation, ev.ResourceId, ev.Objects...)
-}
-
-// TestOnlyEvents returns the event manager for tests.
-func TestOnlyEvents(s *sensorServer) events.EventManager {
-	if s == nil {
-		return nil
-	}
-	return s.events
-}
-
-// TestOnlyNodeTypeID returns the hardcoded NodeType UUID for tests.
-func TestOnlyNodeTypeID() uuid.UUID {
-	return gitSensorNodeTypeID
-}
-
-// TestOnlyNodeID returns the per-process Node UUID for tests.
-func TestOnlyNodeID(s *sensorServer) uuid.UUID {
-	return s.nodeID
-}
-
-// TestOnlyMasterEvents returns all events recorded in the master list for tests.
-func TestOnlyMasterEvents(s *sensorServer) []events.Event {
-	return s.events.master.GetEvents()
-}
-
-// ---- Event manager implementation (mirrors modelsrv internal/events, but local to this repo) ----
-
 type eventManager struct {
+	mu          sync.Mutex
 	log         *zap.SugaredLogger
 	sequence    uint64
 	subscribers []events.Subscriber
@@ -146,10 +37,14 @@ func newEventManager(log *zap.SugaredLogger) *eventManager {
 }
 
 func (e *eventManager) GetCurrentSequenceId(ctx context.Context) (uint64, error) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
 	return e.sequence, nil
 }
 
 func (e *eventManager) IncrementSequenceId(ctx context.Context) error {
+	e.mu.Lock()
+	defer e.mu.Unlock()
 	e.sequence++
 	return nil
 }
@@ -159,6 +54,8 @@ func (e *eventManager) SetSinkFactory(factory func() (events.EventSink, error)) 
 }
 
 func (e *eventManager) GetSink() (events.EventSink, error) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
 	if e.sink == nil {
 		e.sink = &recordingSink{mgr: e}
 	}
@@ -166,6 +63,8 @@ func (e *eventManager) GetSink() (events.EventSink, error) {
 }
 
 func (e *eventManager) GetSubscribers() []events.Subscriber {
+	e.mu.Lock()
+	defer e.mu.Unlock()
 	out := make([]events.Subscriber, len(e.subscribers))
 	copy(out, e.subscribers)
 	return out
@@ -179,21 +78,38 @@ func (e *eventManager) AddSubscriber(subURL string) error {
 	if _, err := url.Parse(subURL); err != nil {
 		return fmt.Errorf("invalid subscriber url %q: %w", subURL, err)
 	}
+
+	e.mu.Lock()
 	for _, sub := range e.subscribers {
 		if sub.GetURL() == subURL {
+			e.mu.Unlock()
 			e.log.Infow("subscriber already registered", "subscriber", subURL)
 			return nil
 		}
 	}
+	e.mu.Unlock()
+
 	sub, err := newSubscriber(subURL, e.log)
 	if err != nil {
 		return err
 	}
+
+	e.mu.Lock()
+	for _, existing := range e.subscribers {
+		if existing.GetURL() == subURL {
+			e.mu.Unlock()
+			return nil
+		}
+	}
 	e.subscribers = append(e.subscribers, sub)
+	rawPast := e.master.GetEvents()
+	past := make([]events.Event, len(rawPast))
+	copy(past, rawPast)
+	e.mu.Unlock()
+
 	e.log.Infow("subscriber registered", "subscriber", sub.GetURL())
 
 	// Replay past events.
-	past := e.master.GetEvents()
 	if len(past) == 0 {
 		e.log.Infow("subscriber replay complete", "subscriber", sub.GetURL(), "replayed", 0)
 		return nil
@@ -220,6 +136,8 @@ func (e *eventManager) AddSubscriber(subURL string) error {
 }
 
 func (e *eventManager) RemoveSubscriber(url string) error {
+	e.mu.Lock()
+	defer e.mu.Unlock()
 	for i, sub := range e.subscribers {
 		if sub.GetURL() == url {
 			e.subscribers = append(e.subscribers[:i], e.subscribers[i+1:]...)
@@ -227,6 +145,19 @@ func (e *eventManager) RemoveSubscriber(url string) error {
 		}
 	}
 	return fmt.Errorf("subscriber %s not found", url)
+}
+
+// snapshotMasterEvents returns a copy of recorded events; safe for concurrent use with the manager.
+func (e *eventManager) snapshotMasterEvents() []events.Event {
+	if e == nil {
+		return nil
+	}
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	raw := e.master.GetEvents()
+	out := make([]events.Event, len(raw))
+	copy(out, raw)
+	return out
 }
 
 type recordingSink struct {
@@ -242,12 +173,17 @@ func (r *recordingSink) Receive(resType events.ResourceType, op events.Operation
 		ResourceId:   resourceId,
 		Objects:      objects,
 	}
+	r.mgr.mu.Lock()
 	_ = r.mgr.master.Receive(resType, op, resourceId, objects...)
 	r.mgr.sequence++
+	n := len(r.mgr.subscribers)
+	subs := make([]events.Subscriber, n)
+	copy(subs, r.mgr.subscribers)
+	r.mgr.mu.Unlock()
 
-	r.mgr.log.Infow("event recorded", "kind", resType.String(), "operation", op.WireOperation(), "id", resourceId.String(), "subscribers", len(r.mgr.subscribers))
+	r.mgr.log.Infow("event recorded", "kind", resType.String(), "operation", op.WireOperation(), "id", resourceId.String(), "subscribers", n)
 
-	for _, sub := range r.mgr.subscribers {
+	for _, sub := range subs {
 		s := sub
 		evCopy := ev
 		go func() {
@@ -303,4 +239,3 @@ func (s *subscriber) Notify(ctx context.Context, event *events.Event) error {
 func (s *subscriber) GetURL() string    { return s.url }
 func (s *subscriber) GetId() uuid.UUID  { return s.id }
 func (s *subscriber) GetStatus() string { return s.status }
-

@@ -1,4 +1,4 @@
-package sensor
+package reconcile
 
 import (
 	"regexp"
@@ -17,10 +17,4 @@ func normalizeYAMLKindsForFileSensor(b []byte) []byte {
 func decodeDocuments(b []byte) ([]filesensor.Document, error) {
 	b = normalizeYAMLKindsForFileSensor(b)
 	return filesensor.DecodeDocuments(b)
-}
-
-// Test-only helpers.
-func TestOnlyNormalizeYAMLKindsForFileSensor(b []byte) []byte { return normalizeYAMLKindsForFileSensor(b) }
-func TestOnlyDecodeDocuments(b []byte) ([]filesensor.Document, error) {
-	return decodeDocuments(b)
 }

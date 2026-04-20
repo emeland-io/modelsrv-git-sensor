@@ -65,6 +65,8 @@ github.com/woodsbury/decimal128 v1.3.0 h1:8pffMNWIlC0O5vbyHWFZAt5yWvWcrHA+3ovIIj
 github.com/woodsbury/decimal128 v1.3.0/go.mod h1:C5UTmyTjW3JftjUFzOVhC20BEQa2a4ZKOB5I6Zjb+ds=
 go.emeland.io/modelsrv v0.0.0-20260407105312-7ae6920e3c3a h1:pSIJNk3Wr2ZKbowILnp5GDCS/FitFfJQ6RP84COdBTE=
 go.emeland.io/modelsrv v0.0.0-20260407105312-7ae6920e3c3a/go.mod h1:VqfdhGE5oOIJrVp9GKpDhPxt+wTTIpoMy33h4C8sJJI=
+go.emeland.io/modelsrv v0.0.4 h1:v8sErij41ZzFSLzQK/gyvf+c0qbXQsRpC9GHB86URPA=
+go.emeland.io/modelsrv v0.0.4/go.mod h1:VqfdhGE5oOIJrVp9GKpDhPxt+wTTIpoMy33h4C8sJJI=
 go.uber.org/goleak v1.3.0 h1:2K3zAYmnTNqV73imy9J1T3WC+gmCePx2hEGkimedGto=
 go.uber.org/goleak v1.3.0/go.mod h1:CoHD4mav9JJNrW/WLlf7HGZPjdw8EucARQHekz1X6bE=
 go.uber.org/mock v0.6.0 h1:hyF9dfmbgIX5EfOdasqLsWD6xqpNZlXblLB/Dbnwv3Y=

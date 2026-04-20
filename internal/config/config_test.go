@@ -135,7 +135,7 @@ var _ = Describe("config normalize/validate helpers", func() {
 				Paths:       []string{"p"},
 			}},
 		}
-		config.TestOnlyNormalize(&cfg, GinkgoT().TempDir())
+		config.ExportNormalize(&cfg, GinkgoT().TempDir())
 		Expect(cfg.Subscribers).To(Equal([]string{"a"}))
 	})
 
@@ -150,7 +150,7 @@ var _ = Describe("config normalize/validate helpers", func() {
 				Paths:       []string{"p"},
 			}},
 		}
-		err := config.TestOnlyValidate(cfg)
+		err := config.ExportValidate(cfg)
 		Expect(err).NotTo(HaveOccurred())
 	})
 })
@@ -167,6 +167,6 @@ var _ = Describe("yaml quirks", func() {
 	It("validate fails on empty unmarshaled doc", func() {
 		var cfg config.Config
 		Expect(yaml.Unmarshal([]byte(""), &cfg)).To(Succeed())
-		Expect(config.TestOnlyValidate(cfg)).To(HaveOccurred())
+		Expect(config.ExportValidate(cfg)).To(HaveOccurred())
 	})
 })

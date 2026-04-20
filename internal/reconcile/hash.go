@@ -1,4 +1,4 @@
-package sensor
+package reconcile
 
 import (
 	"crypto/sha256"
@@ -41,4 +41,3 @@ func normalize(v any) any {
 		return t
 	}
 }
-
