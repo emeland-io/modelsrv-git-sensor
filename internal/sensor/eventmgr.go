@@ -233,7 +233,12 @@ func newSubscriber(url string, log *zap.SugaredLogger) (*subscriber, error) {
 }
 
 func (s *subscriber) Notify(ctx context.Context, event *events.Event) error {
-	return s.c.PostEvent(ctx, event)
+	if event == nil {
+		return fmt.Errorf("nil event")
+	}
+	ev := cloneEventForSubscriberNotify(event)
+	patchWirePayloadForReplication(&ev)
+	return s.c.PostEvent(ctx, &ev)
 }
 
 func (s *subscriber) GetURL() string    { return s.url }

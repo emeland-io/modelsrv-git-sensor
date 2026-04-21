@@ -61,14 +61,18 @@ var _ = Describe("ReconcileFile integration", func() {
 		st := reconcile.NewState()
 		ctx := context.Background()
 
+		// sensor.New registers NodeType + Node before first reconcile (2 async pushes) +
+		// first System reconcile (1 push) => 3 total once delivery catches up.
+		const wantAfterFirstSystem = int32(3)
+
 		write("A")
 		Expect(reconcile.ReconcileFile(ctx, srv, st, f, log)).To(Succeed())
-		Eventually(func() int32 { return pushes.Load() }).Should(BeNumerically(">=", 1))
+		Eventually(func() int32 { return pushes.Load() }).WithTimeout(2 * time.Second).Should(Equal(wantAfterFirstSystem))
 
 		// Same content: should not re-push.
 		prev := pushes.Load()
 		Expect(reconcile.ReconcileFile(ctx, srv, st, f, log)).To(Succeed())
-		Consistently(func() int32 { return pushes.Load() }).Should(Equal(prev))
+		Consistently(func() int32 { return pushes.Load() }, 200*time.Millisecond).Should(Equal(prev))
 
 		// Change YAML -> should push again (Update op).
 		write("B")
