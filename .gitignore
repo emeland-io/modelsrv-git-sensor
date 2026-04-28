@@ -34,3 +34,4 @@ profile.cov
 *.swo
 *~
 .DS_Store
+.vscode/

@@ -237,7 +237,7 @@ func (s *subscriber) Notify(ctx context.Context, event *events.Event) error {
 		return fmt.Errorf("nil event")
 	}
 	ev := cloneEventForSubscriberNotify(event)
-	patchWirePayloadForReplication(&ev)
+	patchWirePayloadForReplication(s.log, &ev)
 	return s.c.PostEvent(ctx, &ev)
 }
 

@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	"go.emeland.io/modelsrv/pkg/events"
+	"go.uber.org/zap"
 )
 
 // cloneEventForSubscriberNotify copies the event and its Objects slice so Notify can
@@ -25,16 +26,23 @@ func cloneEventForSubscriberNotify(src *events.Event) events.Event {
 
 // patchWirePayloadForReplication maps domain-encoded JSON into OpenAPI wire shapes expected by
 // ModelSrv replication (POST /events/push). See PushWireEventFromDomain and replication_decode.
-func patchWirePayloadForReplication(ev *events.Event) {
+func patchWirePayloadForReplication(log *zap.SugaredLogger, ev *events.Event) {
+	if log == nil {
+		log = zap.NewNop().Sugar()
+	}
 	if ev == nil || len(ev.Objects) == 0 {
 		return
 	}
 	b, err := json.Marshal(ev.Objects[0])
 	if err != nil {
+		log.Warnw("replication wire patch: marshal event object failed", "error", err,
+			"kind", ev.ResourceType.String(), "id", ev.ResourceId.String())
 		return
 	}
 	var m map[string]interface{}
 	if err := json.Unmarshal(b, &m); err != nil {
+		log.Warnw("replication wire patch: unmarshal for wire mapping failed", "error", err,
+			"kind", ev.ResourceType.String(), "id", ev.ResourceId.String())
 		return
 	}
 	rid := ev.ResourceId
@@ -150,8 +158,6 @@ func extractUUIDScalar(el interface{}) string {
 				}
 			}
 		}
-	case json.Number:
-		return strings.TrimSpace(t.String())
 	case float64:
 		// JSON numbers for UUID unlikely; skip
 	}
