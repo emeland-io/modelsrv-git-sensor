@@ -17,7 +17,7 @@ import (
 // and must not be changed after the first deployment.
 var gitSensorNodeTypeID = uuid.MustParse("bd044ec4-5e2f-5b91-a444-cc120374d21a")
 
-// Server runs a modelsrv web endpoint and forwards events to subscribers.
+// Server runs a modelsrv web endpoint backed by a local model and forwards changes to subscribers.
 type Server struct {
 	events *eventManager
 	model  model.Model
@@ -32,11 +32,6 @@ func New(listenAddr string, subscribers []string, log *zap.SugaredLogger) (*Serv
 	}
 
 	em := newEventManager(log)
-	for _, s := range subscribers {
-		if err := em.AddSubscriber(s); err != nil {
-			return nil, err
-		}
-	}
 
 	sink, err := em.GetSink()
 	if err != nil {
@@ -60,6 +55,14 @@ func New(listenAddr string, subscribers []string, log *zap.SugaredLogger) (*Serv
 	n.SetNodeTypeByRef(nt)
 	if err := m.AddNode(n); err != nil {
 		return nil, fmt.Errorf("register node: %w", err)
+	}
+
+	// Register downstream subscribers only after NodeType + Node exist in the master
+	// list so AddSubscriber's replay delivers them reliably (ordered, synchronous Notify).
+	for _, s := range subscribers {
+		if err := em.AddSubscriber(s); err != nil {
+			return nil, err
+		}
 	}
 
 	if err := endpoint.StarWebListener(m, em, listenAddr); err != nil {
@@ -88,13 +91,11 @@ func (s *Server) Close() error {
 	return nil
 }
 
-// Emit forwards an event into the sensor's event manager (which records and pushes to subscribers).
+// Emit applies the event to this process's model (landscape API) and forwards it through the
+// model sink to the event manager (master recording + subscriber notify). Apply uses the same
+// Add*/Delete* paths as replication, so local state and downstream pushes stay aligned.
 func (s *Server) Emit(ev events.Event) error {
-	sink, err := s.events.GetSink()
-	if err != nil {
-		return err
-	}
-	return sink.Receive(ev.ResourceType, ev.Operation, ev.ResourceId, ev.Objects...)
+	return s.model.Apply(ev)
 }
 
 // MasterEvents returns a snapshot of all events recorded in the master list.
