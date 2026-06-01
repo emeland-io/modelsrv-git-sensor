@@ -16,9 +16,9 @@ import (
 
 func main() {
 	var (
-		configPath   = flag.String("config", "config/sensor.yaml", "Path to YAML config")
-		listenAddr   = flag.String("listen", "localhost:24100", "HTTP listen address for this sensor's modelsrv API")
-		pollInterval = flag.Duration("poll-interval", 10*time.Second, "Reconcile polling interval")
+		configPath   = flag.String("config", envOrDefault("SENSOR_CONFIG", "config/sensor.yaml"), "Path to YAML config")
+		listenAddr   = flag.String("listen", envOrDefault("SENSOR_LISTEN_ADDR", "localhost:24100"), "HTTP listen address for this sensor's modelsrv API")
+		pollInterval = flag.Duration("poll-interval", envDurationOrDefault("SENSOR_POLL_INTERVAL", 10*time.Second), "Reconcile polling interval")
 	)
 	flag.Parse()
 
@@ -58,4 +58,20 @@ func main() {
 	if err := reconcile.Run(ctx, cfg, slog); err != nil {
 		slog.Fatalw("sensor exited with error", "error", err)
 	}
+}
+
+func envOrDefault(key, fallback string) string {
+	if v, ok := os.LookupEnv(key); ok {
+		return v
+	}
+	return fallback
+}
+
+func envDurationOrDefault(key string, fallback time.Duration) time.Duration {
+	if v, ok := os.LookupEnv(key); ok {
+		if d, err := time.ParseDuration(v); err == nil {
+			return d
+		}
+	}
+	return fallback
 }

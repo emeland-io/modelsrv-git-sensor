@@ -244,3 +244,7 @@ func (s *subscriber) Notify(ctx context.Context, event *events.Event) error {
 func (s *subscriber) GetURL() string    { return s.url }
 func (s *subscriber) GetId() uuid.UUID  { return s.id }
 func (s *subscriber) GetStatus() string { return s.status }
+
+func (e *eventManager) QueryEvents(_ context.Context, _ events.EventQuery) ([]events.StoredEvent, error) {
+	return nil, nil
+}
