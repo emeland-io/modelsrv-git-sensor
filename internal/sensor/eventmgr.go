@@ -184,26 +184,22 @@ func (r *recordingSink) Receive(resType events.ResourceType, op events.Operation
 	r.mgr.log.Infow("event recorded", "kind", resType.String(), "operation", op.WireOperation(), "id", resourceId.String(), "subscribers", n)
 
 	for _, sub := range subs {
-		s := sub
-		evCopy := ev
-		go func() {
-			if err := s.Notify(context.Background(), &evCopy); err != nil {
-				r.mgr.log.Errorw("subscriber notify failed",
-					"subscriber", s.GetURL(),
-					"kind", evCopy.ResourceType.String(),
-					"operation", evCopy.Operation.WireOperation(),
-					"id", evCopy.ResourceId.String(),
-					"error", err,
-				)
-				return
-			}
-			r.mgr.log.Infow("subscriber notified",
-				"subscriber", s.GetURL(),
-				"kind", evCopy.ResourceType.String(),
-				"operation", evCopy.Operation.WireOperation(),
-				"id", evCopy.ResourceId.String(),
+		if err := sub.Notify(context.Background(), &ev); err != nil {
+			r.mgr.log.Errorw("subscriber notify failed",
+				"subscriber", sub.GetURL(),
+				"kind", ev.ResourceType.String(),
+				"operation", ev.Operation.WireOperation(),
+				"id", ev.ResourceId.String(),
+				"error", err,
 			)
-		}()
+			continue
+		}
+		r.mgr.log.Infow("subscriber notified",
+			"subscriber", sub.GetURL(),
+			"kind", ev.ResourceType.String(),
+			"operation", ev.Operation.WireOperation(),
+			"id", ev.ResourceId.String(),
+		)
 	}
 	return nil
 }
