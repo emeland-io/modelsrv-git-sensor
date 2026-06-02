@@ -65,7 +65,7 @@ func New(listenAddr string, subscribers []string, log *zap.SugaredLogger) (*Serv
 		}
 	}
 
-	if err := endpoint.StarWebListener(m, em, listenAddr); err != nil {
+	if err := endpoint.StartWebListener(m, em, listenAddr); err != nil {
 		return nil, err
 	}
 
