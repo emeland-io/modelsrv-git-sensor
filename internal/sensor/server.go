@@ -43,14 +43,14 @@ func New(listenAddr string, subscribers []string, log *zap.SugaredLogger) (*Serv
 		return nil, err
 	}
 
-	nt := node.NewNodeType(sink, gitSensorNodeTypeID)
+	nt := node.NewNodeType(gitSensorNodeTypeID)
 	nt.SetDisplayName("git-sensor")
 	if err := m.AddNodeType(nt); err != nil {
 		return nil, fmt.Errorf("register node type: %w", err)
 	}
 
 	nodeID := uuid.New()
-	n := node.NewNode(sink, nodeID)
+	n := node.NewNode(nodeID)
 	n.SetDisplayName("git-sensor")
 	n.SetNodeTypeByRef(nt)
 	if err := m.AddNode(n); err != nil {
@@ -65,7 +65,7 @@ func New(listenAddr string, subscribers []string, log *zap.SugaredLogger) (*Serv
 		}
 	}
 
-	if err := endpoint.StartWebListener(m, em, listenAddr); err != nil {
+	if err := endpoint.StartWebListener(m, em, listenAddr, endpoint.WebListenerOptions{}); err != nil {
 		return nil, err
 	}
 

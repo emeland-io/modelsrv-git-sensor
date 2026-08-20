@@ -10,7 +10,7 @@ import (
 	"go.uber.org/zap"
 
 	"go.emeland.io/modelsrv/pkg/events"
-	"go.emeland.io/modelsrv/pkg/filesensor"
+	"go.emeland.io/modelsrv/pkg/ingress"
 )
 
 // ReconcileDir scans a directory recursively for YAML files and reconciles them.
@@ -91,7 +91,7 @@ func ReconcileFile(ctx context.Context, emitter Emitter, st *State, path string,
 
 	for i := range docs {
 		doc := docs[i]
-		if !filesensor.ValidVersion(doc.Version) {
+		if !ingress.ValidVersion(doc.Version) {
 			continue
 		}
 		rt := doc.Kind.ResourceType()

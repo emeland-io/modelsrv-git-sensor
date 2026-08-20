@@ -3,7 +3,7 @@ package reconcile
 import (
 	"github.com/google/uuid"
 	"go.emeland.io/modelsrv/pkg/events"
-	"go.emeland.io/modelsrv/pkg/filesensor"
+	"go.emeland.io/modelsrv/pkg/ingress"
 )
 
 // Export* symbols are test hooks (this file is not compiled into non-test builds).
@@ -17,6 +17,6 @@ func ExportNormalizeYAMLKindsForFileSensor(b []byte) []byte {
 	return normalizeYAMLKindsForFileSensor(b)
 }
 
-func ExportDecodeDocuments(b []byte) ([]filesensor.Document, error) {
+func ExportDecodeDocuments(b []byte) ([]ingress.Document, error) {
 	return decodeDocuments(b)
 }

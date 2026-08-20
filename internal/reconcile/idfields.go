@@ -6,7 +6,7 @@ import (
 
 	"github.com/google/uuid"
 	"go.emeland.io/modelsrv/pkg/events"
-	"go.emeland.io/modelsrv/pkg/filesensor"
+	"go.emeland.io/modelsrv/pkg/ingress"
 	"go.emeland.io/modelsrv/pkg/model"
 )
 
@@ -91,13 +91,13 @@ func uuidFromSpec(spec map[string]any, key string) (uuid.UUID, error) {
 
 // buildEvent applies a decoded YAML document into a temporary in-memory model
 // and returns the resulting event with its operation field unset (caller sets it).
-func buildEvent(doc filesensor.Document) (events.Event, error) {
+func buildEvent(doc ingress.Document) (events.Event, error) {
 	sink := &listSink{}
 	m, err := model.NewModel(sink)
 	if err != nil {
 		return events.Event{}, err
 	}
-	if err := filesensor.ApplyDocument(doc, m); err != nil {
+	if err := ingress.ApplyDocument(doc, m); err != nil {
 		return events.Event{}, err
 	}
 	if len(sink.events) == 0 {
