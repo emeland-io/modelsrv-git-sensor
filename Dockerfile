@@ -8,7 +8,7 @@ RUN go mod download
 COPY . .
 RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -o modelsrv-git-sensor ./cmd/modelsrv-git-sensor
 
-FROM alpine:3.21
+FROM alpine:3.24
 RUN apk add --no-cache git openssh-client
 WORKDIR /
 COPY --from=builder /workspace/modelsrv-git-sensor .
